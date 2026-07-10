@@ -1,0 +1,14 @@
+receipts_analytics:
+  target: dev
+  outputs:
+    # Local development: DuckDB file relative to the dbt project dir.
+    dev:
+      type: duckdb
+      path: receipts.duckdb
+      threads: 4
+    # Airflow/Docker: DuckDB on the shared 'warehouse' named volume, so the
+    # pipeline (writer) and the Streamlit dashboard (reader) see the same file.
+    prod:
+      type: duckdb
+      path: /opt/airflow/warehouse/receipts.duckdb
+      threads: 4

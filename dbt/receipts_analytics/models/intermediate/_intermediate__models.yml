@@ -1,0 +1,18 @@
+version: 2
+
+# Intermediate models hold the reusable business logic between staging and
+# marts. They are materialized as views (see dbt_project.yml) so they stay
+# queryable for dashboard "show the working" panels and ad-hoc debugging.
+models:
+  - name: int_receipt_profits
+    description: Cost, revenue and profit rolled up to one row per receipt, after promotions.
+  - name: int_business_sales
+    description: Receipts enriched with the issuing business and calendar parts (year/month).
+  - name: int_business_sales_profits
+    description: int_business_sales joined to int_receipt_profits — business context plus profit per receipt.
+  - name: int_customer_business_spend
+    description: One row per receipt linking a customer to a business and the amount spent.
+  - name: int_customer_business_summary
+    description: Total spend and purchase count per business + customer.
+  - name: int_business_employees
+    description: Distinct (business, month, cashier) activity used for headcount and turnover.

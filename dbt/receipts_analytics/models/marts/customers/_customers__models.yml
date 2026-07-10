@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: fct_top_customers_by_spend
+    description: >
+      Q2 mart. Top 10 customers per business ranked by total amount spent
+      (ties broken by number of purchases).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [business_name, ranking]
+    columns:
+      - name: business_name
+        description: Business the ranking is scoped to.
+        data_tests: [not_null]
+      - name: customer_name
+        description: Customer name.
+        data_tests: [not_null]
+      - name: amount_spent
+        description: Total spent by the customer at the business (AUD).
+      - name: num_purchases
+        description: Number of purchases the customer made at the business.
+      - name: ranking
+        description: Rank within the business (1 = highest spend).
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+  - name: fct_top_customers_by_purchases
+    description: >
+      Q2 mart. Top 10 customers per business ranked by number of purchases
+      (ties broken by amount spent).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [business_name, ranking]
+    columns:
+      - name: business_name
+        description: Business the ranking is scoped to.
+        data_tests: [not_null]
+      - name: customer_name
+        description: Customer name.
+        data_tests: [not_null]
+      - name: num_purchases
+        description: Number of purchases the customer made at the business.
+      - name: amount_spent
+        description: Total spent by the customer at the business (AUD).
+      - name: ranking
+        description: Rank within the business (1 = most purchases).
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

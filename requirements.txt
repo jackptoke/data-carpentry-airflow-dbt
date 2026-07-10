@@ -1,11 +1,13 @@
+# Extra packages installed on top of the apache/airflow base image, into the
+# Airflow environment. dbt itself runs from the separate project virtualenv
+# (.venv) that Cosmos points at.
+
+# Orchestration + transformation
 astronomer-cosmos==1.10.1
-dbt==1.0.0.40.5
+# dbt-core is pulled in transitively by dbt-duckdb; the standalone `dbt`
+# meta-package is deprecated and intentionally not installed here.
 dbt-duckdb==1.9.4
 duckdb==1.3.1
-#astro-sdk-python==1.8.1
-astro-sdk-python[amazon,duckdb]
-airflow-provider-duckdb==0.2.0
-apache-airflow-providers-amazon==9.9.0
+
+# Used by the ingestion asset
 pandas==2.2.3
-aiohttp==3.11.18
-minio==7.2.15

@@ -1,0 +1,34 @@
+name: 'receipts_analytics'
+
+config-version: 2
+version: '0.1'
+
+profile: 'receipts_analytics'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+analysis-paths: ["analysis"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+    - "target"
+    - "dbt_packages"
+    - "logs"
+
+require-dbt-version: [">=1.0.0", "<2.0.0"]
+
+# Layered materialization strategy:
+#   staging      -> views (thin renames over raw, cheap to rebuild)
+#   intermediate -> views (business logic; kept queryable so the dashboard and
+#                          ad-hoc debugging can inspect the intermediate steps)
+#   marts        -> tables (queried directly by the Streamlit dashboard)
+models:
+  receipts_analytics:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table

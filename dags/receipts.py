@@ -1,52 +1,54 @@
-from airflow.sdk import asset, Asset, Context
-from airflow.decorators import dag, task
-import duckdb
-import pandas as pd
+"""Ingestion layer: land raw receipt JSON into DuckDB.
+
+This is the single source-loading step of the pipeline. It reads every receipt
+JSON file in the data directory using DuckDB's native ``read_json`` (which
+preserves the nested struct/list structure) and (re)creates the
+``main.raw_receipts`` landing table that the dbt project consumes as its source.
+
+Producing this asset triggers the ``dbt_receipts_analytics`` DAG (see dags/dbt.py),
+which transforms ``raw_receipts`` into the staging/intermediate/mart models.
+"""
+from __future__ import annotations
+
+import logging
 import os
-import csv
-import json
+from pathlib import Path
 
-@asset(
-    schedule="@daily",
-    uri="data/receipts/"
-)
-def receipts(self) -> list[dict]:
-    files = os.listdir(self.uri)
-    data = []
-    for file in files:
-        if file.endswith('.csv'):
-            with open(os.path.join(self.uri, file), 'r') as f:
-                csv_data = csv.reader(f)
-                for row in csv_data:
-                    data.append(row)
-        elif file.endswith('.json'):
-            with open(os.path.join(self.uri, file), 'r') as f:
-                json_data = json.load(f)
-                data.append(json_data)
+import duckdb
+from airflow.sdk import asset
 
-    return data
+log = logging.getLogger(__name__)
+
+# Data dir is resolved from the repo root (/opt/airflow in the container).
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATA_GLOB = PROJECT_ROOT / "data" / "receipts" / "*.json"
+# The DuckDB lives on the shared 'warehouse' volume so dbt (prod target) and the
+# Streamlit dashboard read/write the same file. Overridable for local runs.
+DUCKDB_PATH = Path(os.getenv("WAREHOUSE_DB_PATH", "/opt/airflow/warehouse/receipts.duckdb"))
 
 
-@asset(
-    schedule=receipts,
-)
-def stg_receipts(receipts, context: Context):
-    """
-    CREATE STAGING TABLE stg_receipts
-    """
-    receipts_data = context['ti'].xcom_pull(
-        dag_id=receipts.name,
-        task_ids=receipts.name,
-        include_prior_dates=True,
-    )
-    receipts_df = pd.DataFrame(receipts_data)
-    conn = duckdb.connect("dbt/airbnb/receipts.duckdb")
-    conn.sql(
-        f"""CREATE OR REPLACE TABLE receipts.main.stg_receipts AS 
-                SELECT * FROM receipts_df;"""
-    )
-    num_rows = conn.sql("SELECT COUNT(*) AS NUM_ROWS FROM receipts.main.stg_receipts;").df()
-    print(f"Number of rows: {num_rows["NUM_ROWS"]}")
+@asset(schedule="@daily", uri="duckdb://main/raw_receipts")
+def raw_receipts() -> None:
+    """Load all receipt JSON files into the ``main.raw_receipts`` table."""
+    DUCKDB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    log.info("Loading receipts from %s into %s", DATA_GLOB, DUCKDB_PATH)
 
+    with duckdb.connect(str(DUCKDB_PATH)) as conn:
+        conn.execute("CREATE SCHEMA IF NOT EXISTS main;")
+        conn.execute(
+            """
+            CREATE OR REPLACE TABLE main.raw_receipts AS
+            SELECT * FROM read_json(?, format = 'auto', union_by_name = true)
+            """,
+            [str(DATA_GLOB)],
+        )
+        row_count = conn.execute(
+            "SELECT COUNT(*) FROM main.raw_receipts"
+        ).fetchone()[0]
 
-
+    log.info("Loaded %s receipts into main.raw_receipts", row_count)
+    if row_count == 0:
+        raise ValueError(
+            f"No receipts were loaded from {DATA_GLOB}. "
+            "Check that the data directory is populated and mounted."
+        )

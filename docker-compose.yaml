@@ -78,9 +78,10 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/airflow/data
-    - ${AIRFLOW_PROJ_DIR:-.}/dbt:/opt/airflow/dbt
     - ${AIRFLOW_PROJ_DIR:-.}/config/airflow.cfg:/opt/airflow/config/airflow.cfg
-    - ${AIRFLOW_PROJ_DIR:-.}/.venv:/opt/airflow/.venv
+    # The dbt project (with its compiled manifest and packages) is baked into the
+    # image, not mounted. Only the DuckDB warehouse is shared, via a named volume.
+    - warehouse:/opt/airflow/warehouse
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -339,9 +340,13 @@ services:
       context: .
       dockerfile: Dockerfile_streamlit
     restart: always
+    environment:
+      DUCKDB_FILE: /opt/airflow/warehouse/receipts.duckdb
     volumes:
       - ./dashboard:/opt/airflow/dashboard
-      - ./dbt/airbnb/receipts.duckdb:/opt/airflow/dbt/airbnb/receipts.duckdb
+      # Read the live DuckDB the pipeline produces on the shared warehouse volume
+      # (read-only; the Airflow pipeline is the only writer).
+      - warehouse:/opt/airflow/warehouse:ro
     entrypoint:
       - streamlit
       - run
@@ -365,3 +370,4 @@ services:
 
 volumes:
   postgres-db-volume:
+  warehouse:

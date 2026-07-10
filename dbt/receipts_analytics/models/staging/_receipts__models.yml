@@ -1,0 +1,121 @@
+version: 2
+
+models:
+  - name: stg_receipts
+    description: Receipt header, one row per receipt, with the date parsed to a DATE.
+    columns:
+      - name: receipt_ref
+        description: Unique receipt reference (natural key).
+        data_tests:
+          - not_null
+          - unique
+      - name: sequence_num
+        description: Per-terminal sequence number of the receipt.
+      - name: receipt_date
+        description: Date the receipt was issued.
+        data_tests:
+          - not_null
+      - name: gst
+        description: GST amount charged on the receipt (AUD).
+      - name: terminal_num
+        description: POS terminal that produced the receipt.
+      - name: receipt_total
+        description: Total amount charged on the receipt (AUD).
+        data_tests:
+          - not_null
+
+  - name: stg_businesses
+    description: The business that issued each receipt.
+    columns:
+      - name: receipt_ref
+        description: Receipt reference.
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('stg_receipts')
+              field: receipt_ref
+      - name: business_abn
+        description: Australian Business Number of the issuing business.
+      - name: business_name
+        description: Name of the issuing business.
+        data_tests:
+          - not_null
+
+  - name: stg_cashiers
+    description: The cashier (employee) who processed each receipt.
+    columns:
+      - name: receipt_ref
+        description: Receipt reference.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_receipts')
+              field: receipt_ref
+      - name: cashier_name
+        description: Name of the cashier. Used as the employee identity for turnover analysis.
+        data_tests:
+          - not_null
+
+  - name: stg_customers
+    description: The customer named on each receipt (nullable for anonymous sales).
+    columns:
+      - name: receipt_ref
+        description: Receipt reference.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_receipts')
+              field: receipt_ref
+      - name: customer_name
+        description: Customer name, if recorded.
+      - name: customer_points
+        description: Loyalty points earned on the receipt.
+
+  - name: stg_payments
+    description: Payment lines, one row per payment on a receipt.
+    columns:
+      - name: receipt_ref
+        description: Receipt reference (repeats across payment lines).
+        data_tests:
+          - not_null
+      - name: payment_method
+        description: How the payment was made (e.g. Debit Card, Cash).
+        data_tests:
+          - not_null
+      - name: payment_amount
+        description: Amount paid on this line (AUD).
+
+  - name: stg_products
+    description: Product lines, one row per product sold on a receipt.
+    columns:
+      - name: receipt_ref
+        description: Receipt reference (repeats across product lines).
+        data_tests:
+          - not_null
+      - name: product_name
+        description: Product name.
+        data_tests:
+          - not_null
+      - name: product_cost
+        description: Unit cost to the business (AUD).
+      - name: product_price
+        description: Unit sale price (AUD).
+      - name: product_quantity
+        description: Units sold on this line.
+
+  - name: stg_promotions
+    description: Promotion lines, one row per promotion applied on a receipt.
+    columns:
+      - name: receipt_ref
+        description: Receipt reference.
+        data_tests:
+          - not_null
+      - name: product_name
+        description: Product the promotion applies to.
+        data_tests:
+          - not_null
+      - name: discount
+        description: Fractional discount applied (e.g. 0.10 = 10% off).
+      - name: per_quantity
+        description: Quantity that must be purchased to qualify for the discount.

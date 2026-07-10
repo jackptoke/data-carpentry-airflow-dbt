@@ -1,0 +1,16 @@
+[project]
+name = "data-carpentry-airflow-dbt"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12.13"
+dependencies = [
+    "aiohttp>=3.14.1",
+    "airflow-provider-duckdb>=0.2.0",
+    "astro-sdk-python>=1.8.1",
+    "astronomer-cosmos>=1.15.0",
+    "dbt-duckdb>=1.10.1",
+    "duckdb>=1.5.4",
+    "minio>=7.2.20",
+    "pandas>=2.1.4",
+]

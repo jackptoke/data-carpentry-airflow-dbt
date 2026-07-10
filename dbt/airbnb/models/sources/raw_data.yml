@@ -1,8 +1,0 @@
-version: 2
-
-sources:
-  - name: receipt_source
-    database: receipts
-    schema: main
-    tables:
-      - name: stg_receipts

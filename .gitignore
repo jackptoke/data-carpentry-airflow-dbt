@@ -165,3 +165,26 @@ cython_debug/
 #Minio data
 include/data/minio/
 upgrade-test* 
+# ---- Project-specific (added for showcase cleanup) ----
+# OS cruft
+.DS_Store
+**/.DS_Store
+
+# DuckDB is a build artifact produced by the pipeline, not source
+*.duckdb
+*.duckdb.wal
+
+# dbt build artifacts / local state
+dbt_packages/
+**/dbt_packages/
+**/target/
+**/logs/
+.user.yml
+**/.user.yml
+
+# Local secrets
+.env
+
+# Airflow runtime
+logs/
+plugins/

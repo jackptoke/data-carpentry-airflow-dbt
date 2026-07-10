@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw receipt documents landed by the Airflow ingestion asset. One row per
+      receipt, with nested structs/lists for businesses, customers, payments,
+      products and promotions (loaded directly from JSON via DuckDB read_json).
+    database: receipts
+    schema: main
+    tables:
+      - name: raw_receipts
+        description: One row per receipt as ingested from the source JSON files.
+        columns:
+          - name: Reference
+            description: Unique receipt reference (natural key).
+            data_tests:
+              - not_null
+              - unique

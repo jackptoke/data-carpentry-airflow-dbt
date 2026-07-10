@@ -1,18 +1,23 @@
-FROM python:3.12-slim
+# Pinned to Debian bookworm for reproducible builds (the floating slim tag
+# moved to trixie, which dropped some package names).
+FROM python:3.12-slim-bookworm
 LABEL authors="jacktoke"
 
 WORKDIR /opt/airflow
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
+# Only curl is needed at runtime, for the Streamlit healthcheck in
+# docker-compose.yaml. The dashboard dependencies all install from wheels,
+# so no compiler/build tooling is required.
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip
 
 COPY ./dashboard ./dashboard
 
-COPY ./dbt/airbnb/receipts.duckdb dbt/airbnb/receipts.duckdb
-
 RUN pip install -r dashboard/requirements.txt
+
+# The DuckDB database is NOT baked into the image. It is the pipeline's output
+# and is mounted at runtime (see the dc-streamlit volume in docker-compose.yaml),
+# so the dashboard always reflects the latest dbt build.
