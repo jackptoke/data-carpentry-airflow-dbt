@@ -20,14 +20,20 @@ from cosmos import (
     ProjectConfig,
     RenderConfig,
 )
-from cosmos.constants import TestBehavior
+from cosmos.constants import LoadMode, TestBehavior
+from airflow.sdk import Asset
 
-from receipts import raw_receipts
+# The ingestion asset produced by dags/receipts.py. Referenced by identity (not
+# imported) so importing this DAG file does not re-register the raw_receipts DAG.
+RAW_RECEIPTS_ASSET = Asset(name="raw_receipts", uri="duckdb://main/raw_receipts")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DBT_PROJECT_DIR = PROJECT_ROOT / "dbt" / "receipts_analytics"
-# dbt lives in the project virtualenv mounted at /opt/airflow/.venv
-DBT_EXECUTABLE = PROJECT_ROOT / ".venv" / "bin" / "dbt"
+# dbt is installed into the Airflow image (via requirements.txt) and is on PATH.
+DBT_EXECUTABLE = "/home/airflow/.local/bin/dbt"
+# Pre-compiled at image build time (see Dockerfile) so the DAG renders from the
+# manifest instead of shelling out to dbt on every parse.
+MANIFEST_PATH = DBT_PROJECT_DIR / "target" / "manifest.json"
 
 profile_config = ProfileConfig(
     profile_name="receipts_analytics",
@@ -35,13 +41,14 @@ profile_config = ProfileConfig(
     profiles_yml_filepath=DBT_PROJECT_DIR / "profiles.yml",
 )
 
-execution_config = ExecutionConfig(dbt_executable_path=str(DBT_EXECUTABLE))
+execution_config = ExecutionConfig(dbt_executable_path=DBT_EXECUTABLE)
 
-# Render one task per model, immediately followed by that model's tests, and
-# install dbt packages (dbt_utils) during rendering.
+# Render one task per model, immediately followed by that model's tests, from
+# the pre-built manifest (fast, deterministic, no dbt run at parse time).
 render_config = RenderConfig(
     test_behavior=TestBehavior.AFTER_EACH,
-    dbt_deps=True,
+    load_method=LoadMode.DBT_MANIFEST,
+    dbt_executable_path=DBT_EXECUTABLE,
 )
 
 default_args = {
@@ -52,12 +59,15 @@ default_args = {
 
 dbt_receipts_analytics = DbtDag(
     dag_id="dbt_receipts_analytics",
-    project_config=ProjectConfig(dbt_project_path=DBT_PROJECT_DIR),
+    project_config=ProjectConfig(
+        dbt_project_path=DBT_PROJECT_DIR,
+        manifest_path=MANIFEST_PATH,
+    ),
     profile_config=profile_config,
     execution_config=execution_config,
     render_config=render_config,
     # Asset-scheduled: run after the raw_receipts ingestion asset is produced.
-    schedule=[raw_receipts],
+    schedule=[RAW_RECEIPTS_ASSET],
     default_args=default_args,
     tags=["dbt", "receipts"],
     doc_md=__doc__,

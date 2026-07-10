@@ -6,8 +6,9 @@ receipts_analytics:
       type: duckdb
       path: receipts.duckdb
       threads: 4
-    # Airflow/Docker: absolute path to the shared DuckDB volume.
+    # Airflow/Docker: DuckDB on the shared 'warehouse' named volume, so the
+    # pipeline (writer) and the Streamlit dashboard (reader) see the same file.
     prod:
       type: duckdb
-      path: /opt/airflow/dbt/receipts_analytics/receipts.duckdb
+      path: /opt/airflow/warehouse/receipts.duckdb
       threads: 4

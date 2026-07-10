@@ -11,6 +11,7 @@ which transforms ``raw_receipts`` into the staging/intermediate/mart models.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import duckdb
@@ -18,11 +19,12 @@ from airflow.sdk import asset
 
 log = logging.getLogger(__name__)
 
-# Resolve paths from the repo root so the task never depends on the worker CWD.
-# In the container this is /opt/airflow; locally it is the repository root.
+# Data dir is resolved from the repo root (/opt/airflow in the container).
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_GLOB = PROJECT_ROOT / "data" / "receipts" / "*.json"
-DUCKDB_PATH = PROJECT_ROOT / "dbt" / "receipts_analytics" / "receipts.duckdb"
+# The DuckDB lives on the shared 'warehouse' volume so dbt (prod target) and the
+# Streamlit dashboard read/write the same file. Overridable for local runs.
+DUCKDB_PATH = Path(os.getenv("WAREHOUSE_DB_PATH", "/opt/airflow/warehouse/receipts.duckdb"))
 
 
 @asset(schedule="@daily", uri="duckdb://main/raw_receipts")

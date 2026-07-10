@@ -5,17 +5,19 @@ Airflow + dbt pipeline. All pages query through :func:`run_query`, which caches
 results and opens the database read-only so it never contends with the pipeline
 for the single DuckDB write lock.
 """
+import os
 from pathlib import Path
 
 import duckdb
 import streamlit as st
 
-# Resolve the DuckDB path from the repo root so it works both locally and in the
-# container (WORKDIR /opt/airflow, dbt project mounted read-only).
-DUCKDB_FILE = str(
+# In Docker the dashboard reads the shared 'warehouse' volume (DUCKDB_FILE is set
+# in docker-compose). Locally it defaults to the dbt dev database in the repo.
+_DEFAULT_DUCKDB = (
     Path(__file__).resolve().parent.parent
     / "dbt" / "receipts_analytics" / "receipts.duckdb"
 )
+DUCKDB_FILE = os.getenv("DUCKDB_FILE", str(_DEFAULT_DUCKDB))
 
 # Businesses in the dataset, in a stable display order.
 BUSINESSES = [
