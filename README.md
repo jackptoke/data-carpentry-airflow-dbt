@@ -102,10 +102,12 @@ dbt build --target dev --profiles-dir .   # runs every model + data test
 ## Notable design decisions
 
 - **Local DuckDB for portability.** The pipeline writes one `receipts.duckdb`
-  file (a build artifact, git-ignored). The dashboard opens it **read-only** so
-  it never contends with the pipeline for DuckDB's single-writer lock. A served
-  backend (MotherDuck, Postgres) would be the next step for true concurrent
-  read/write at scale.
+  file (a build artifact, git-ignored) on a shared `warehouse` Docker volume;
+  the dbt project (with its compiled manifest and packages) is baked into the
+  image rather than mounted. The dashboard opens the file **read-only**, and the
+  dbt DAG runs one model at a time (`max_active_tasks=1`) — both because DuckDB
+  allows only a single writer. A served backend (MotherDuck, Postgres) would be
+  the next step for true concurrent read/write at scale.
 - **Cosmos over a bare `dbt run`.** Rendering per-model tasks makes lineage,
   retries and test failures visible in the Airflow UI instead of hidden inside
   one opaque BashOperator.
