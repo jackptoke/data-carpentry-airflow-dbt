@@ -54,7 +54,7 @@ render_config = RenderConfig(
 default_args = {
     "owner": "jack",
     "retries": 2,
-    "retry_delay": timedelta(minutes=5),
+    "retry_delay": timedelta(minutes=1),
 }
 
 dbt_receipts_analytics = DbtDag(
@@ -69,6 +69,10 @@ dbt_receipts_analytics = DbtDag(
     # Asset-scheduled: run after the raw_receipts ingestion asset is produced.
     schedule=[RAW_RECEIPTS_ASSET],
     default_args=default_args,
+    # DuckDB is single-writer: run one model/test task at a time so concurrent
+    # dbt processes don't collide on the database file's write lock.
+    max_active_tasks=1,
+    max_active_runs=1,
     tags=["dbt", "receipts"],
     doc_md=__doc__,
 )
