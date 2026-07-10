@@ -1,0 +1,13 @@
+receipts_analytics:
+  target: dev
+  outputs:
+    # Local development: DuckDB file relative to the dbt project dir.
+    dev:
+      type: duckdb
+      path: receipts.duckdb
+      threads: 4
+    # Airflow/Docker: absolute path to the shared DuckDB volume.
+    prod:
+      type: duckdb
+      path: /opt/airflow/dbt/receipts_analytics/receipts.duckdb
+      threads: 4
