@@ -1,9 +1,7 @@
-import duckdb
 import plotly.graph_objects as go
 import streamlit as st
 
-
-DUCKDB_FILE = "dbt/airbnb/receipts.duckdb"
+from constants import BUSINESS_COLOURS, run_query
 
 st.markdown("### Questions")
 st.markdown("1. Are there periods of the year where some businesses are more profitable?")
@@ -11,94 +9,79 @@ st.markdown("2. Which customers were most loyal for each business?")
 st.markdown("3. What is the employee turnover rate of each business?")
 
 st.markdown("### Raw Data")
-with duckdb.connect(DUCKDB_FILE) as conn:
-    raw_data = conn.sql("SELECT * FROM receipts.main.stg_receipts").df()
-st.dataframe(raw_data)
+st.caption("`main.raw_receipts` — one row per receipt, loaded from JSON with nested structs/lists.")
+st.dataframe(run_query("SELECT * FROM main.raw_receipts"))
 
 st.markdown("#### Strategy")
-st.markdown("1. First the table needs to be normalised.")
-st.markdown("2. Then different visualisations will be used to gain understanding of the data.")
-st.markdown("3. Finally, meanings and conclusion will be drawn to answer the above three questions.")
+st.markdown(
+    "1. The nested raw receipts are normalised into staging models (`stg_*`).\n"
+    "2. Business logic is layered in intermediate views (`int_*`) and published "
+    "as marts (`fct_*` / `dim_*`).\n"
+    "3. The marts are visualised below to answer each question."
+)
 
-st.markdown("#### Normalised Tables")
-with duckdb.connect(DUCKDB_FILE) as conn:
-    receipts_df = conn.sql("SELECT * FROM receipts.main.receipts").df()
-    receipt_businesses_df = conn.sql("SELECT * FROM receipts.main.receipt_businesses").df()
-    receipt_cashiers_df = conn.sql("SELECT * FROM receipts.main.receipt_cashiers").df()
-    receipt_customers_df = conn.sql("SELECT * FROM receipts.main.receipt_customers").df()
-    receipt_payments_df = conn.sql("SELECT * FROM receipts.main.receipt_payments").df()
-    receipt_products_df = conn.sql("SELECT * FROM receipts.main.receipt_products").df()
-    receipt_promotions_df = conn.sql("SELECT * FROM receipts.main.receipt_promotions").df()
-
-st.markdown("##### receipts")
-st.dataframe(receipts_df)
-row1_col1, row1_col2 = st.columns(2)
-with row1_col1:
-    st.markdown("##### receipt_businesses")
-    st.dataframe(receipt_businesses_df)
-with row1_col2:
-    st.markdown("##### receipt_cashiers")
-    st.dataframe(receipt_cashiers_df)
-row2_col1, row2_col2 = st.columns(2)
-with row2_col1:
-    st.markdown("##### receipt_customers")
-    st.dataframe(receipt_customers_df)
-with row2_col2:
-    st.markdown("##### receipt_payments")
-    st.dataframe(receipt_payments_df)
-row3_col1, row3_col2 = st.columns(2)
-with row3_col1:
-    st.markdown("##### receipt_products")
-    st.dataframe(receipt_products_df)
-with row3_col2:
-    st.markdown("##### receipt_promotions")
-    st.dataframe(receipt_promotions_df)
+st.markdown("#### Normalised (staging) tables")
+st.markdown("##### stg_receipts")
+st.dataframe(run_query("SELECT * FROM main.stg_receipts"))
+other_staging = [
+    "stg_businesses",
+    "stg_cashiers",
+    "stg_customers",
+    "stg_payments",
+    "stg_products",
+    "stg_promotions",
+]
+for left, right in zip(other_staging[0::2], other_staging[1::2]):
+    col_l, col_r = st.columns(2)
+    with col_l:
+        st.markdown(f"##### {left}")
+        st.dataframe(run_query(f"SELECT * FROM main.{left}"))
+    with col_r:
+        st.markdown(f"##### {right}")
+        st.dataframe(run_query(f"SELECT * FROM main.{right}"))
 
 st.markdown("## Q1. Are there periods of the year where some businesses are more profitable?")
-st.markdown("### 1. Sales by Businesses")
-with duckdb.connect(DUCKDB_FILE) as conn:
-    business_sales_df = conn.sql("SELECT * FROM receipts.main.business_sales").df()
-    sale_profits_df = conn.sql("SELECT * FROM receipts.main.sale_profits").df()
-    business_sales_profits_df = conn.sql("SELECT * FROM receipts.main.business_sales_profits").df()
-st.dataframe(business_sales_df)
-st.markdown("### 2. Sale Profits")
-st.dataframe(sale_profits_df)
-st.markdown("### 3. Business Sales and Profits")
-st.dataframe(business_sales_profits_df)
+st.markdown("### 1. Sales by business (`int_business_sales`)")
+st.dataframe(run_query("SELECT * FROM main.int_business_sales"))
+st.markdown("### 2. Profit per receipt (`int_receipt_profits`)")
+st.dataframe(run_query("SELECT * FROM main.int_receipt_profits"))
+st.markdown("### 3. Business sales and profits (`int_business_sales_profits`)")
+st.dataframe(run_query("SELECT * FROM main.int_business_sales_profits"))
 
-st.markdown("### 4. Business Monthly Profits")
-with duckdb.connect(DUCKDB_FILE) as conn:
-    business_monthly_profits_df = conn.sql("SELECT * FROM receipts.main.business_monthly_profits").df()
+st.markdown("### 4. Monthly profits per business (`fct_business_monthly_profits`)")
+monthly = run_query("SELECT * FROM main.fct_business_monthly_profits")
+monthly["month_year"] = monthly["month"].astype(str) + "-" + monthly["year"].astype(str)
+st.dataframe(monthly)
 
-business_monthly_profits_df["month-year"] = business_monthly_profits_df["month"].astype(str) + "-" + business_monthly_profits_df["year"].astype(str)
-st.dataframe(business_monthly_profits_df)
-
-businesses = business_monthly_profits_df["business_name"].unique()
-business_colours = ["#70d6ff", "#ff70a6", "#ff9770", "#ffd670"]
 fig = go.Figure()
-for business, colour in zip(businesses, business_colours):
-    business_profit_data = business_monthly_profits_df[
-        business_monthly_profits_df["business_name"] == business]
-    fig.add_trace(go.Scatter(x=business_profit_data["month-year"],
-                             y=business_profit_data["total_monthly_profit"],
-                             mode='lines+markers',
-                             name=business,
-                             line=dict(color=colour)
-                             ))
+for business in monthly["business_name"].unique():
+    data = monthly[monthly["business_name"] == business]
+    fig.add_trace(
+        go.Scatter(
+            x=data["month_year"],
+            y=data["total_monthly_profit"],
+            mode="lines+markers",
+            name=business,
+            line=dict(color=BUSINESS_COLOURS.get(business)),
+        )
+    )
 fig.update_layout(
     title="Monthly Profits Across Businesses",
-    xaxis_title="Months",
+    xaxis_title="Month",
     yaxis_title="Total Profit ($)",
     xaxis_tickangle=270,
     legend_title="Businesses",
 )
 st.plotly_chart(fig, use_container_width=True)
-st.markdown("Observation")
-st.markdown("1. Ed's Barber Supplies is doing well year by year, and it is performing especially well during"
-            "the first five months of the year.")
-st.markdown("2. Please Bring Pizza Pronto is performing really well across the year and it is growing"
-            "and doubling its profit every two years.")
-st.markdown("3. Penguin Swim School performs worse in the middle of the year, which happens to be "
-            "winter in Australia.")
-st.markdown("4. Wake Up with Coffee doesn't grow as much as Ed's Barber Supplies or Please Bring Pizza Pronto,"
-            "however, they it also doesn't fluctuate as much as Penguin Swim School either.")
+
+st.markdown("#### Observations")
+st.markdown(
+    "1. **Ed's Barber Supplies** grows year on year and performs especially well "
+    "in the first five months of the year.\n"
+    "2. **Please Bring Pizza Pronto** performs strongly across the year, roughly "
+    "doubling its profit every two years.\n"
+    "3. **Penguin Swim School** dips in the middle of the year (Australian "
+    "winter) and grows only sporadically.\n"
+    "4. **Wake Up with Coffee** grows less than Ed's or Pizza Pronto, but is more "
+    "stable than Penguin Swim School."
+)

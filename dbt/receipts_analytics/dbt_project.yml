@@ -21,13 +21,14 @@ require-dbt-version: [">=1.0.0", "<2.0.0"]
 
 # Layered materialization strategy:
 #   staging      -> views (thin renames over raw, cheap to rebuild)
-#   intermediate -> ephemeral (inlined as CTEs, no physical objects)
+#   intermediate -> views (business logic; kept queryable so the dashboard and
+#                          ad-hoc debugging can inspect the intermediate steps)
 #   marts        -> tables (queried directly by the Streamlit dashboard)
 models:
   receipts_analytics:
     staging:
       +materialized: view
     intermediate:
-      +materialized: ephemeral
+      +materialized: view
     marts:
       +materialized: table

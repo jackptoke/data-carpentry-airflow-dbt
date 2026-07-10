@@ -1,8 +1,8 @@
 version: 2
 
-# Intermediate models are materialized as ephemeral CTEs (see dbt_project.yml),
-# so they exist only inside the models that reference them. Documented here for
-# lineage and readability.
+# Intermediate models hold the reusable business logic between staging and
+# marts. They are materialized as views (see dbt_project.yml) so they stay
+# queryable for dashboard "show the working" panels and ad-hoc debugging.
 models:
   - name: int_receipt_profits
     description: Cost, revenue and profit rolled up to one row per receipt, after promotions.
