@@ -1,64 +1,64 @@
-from airflow.sdk import dag
-from airflow.providers.standard.operators.bash import BashOperator
+"""Transformation layer: run the dbt project as native Airflow tasks via Cosmos.
+
+astronomer-cosmos renders the ``receipts_analytics`` dbt project into a task
+group with one task per model plus its tests, so lineage, retries and test
+failures are all visible in the Airflow UI (instead of a single opaque
+``dbt run`` BashOperator).
+
+The DAG is asset-scheduled: it runs whenever the ``raw_receipts`` ingestion
+asset (see dags/receipts.py) is refreshed.
+"""
+from __future__ import annotations
+
+from datetime import timedelta
 from pathlib import Path
-import json
-from receipts import stg_receipts
 
-PATH_TO_DBT_PROJECT = Path(__file__).parent.parent / "dbt/airbnb"
-PATH_TO_DBT_VENV = Path(__file__).parent.parent / ".venv/bin/activate"
-DBT_MANIFEST_PATH = Path(PATH_TO_DBT_PROJECT) / "target" / "manifest.json"
+from cosmos import (
+    DbtDag,
+    ExecutionConfig,
+    ProfileConfig,
+    ProjectConfig,
+    RenderConfig,
+)
+from cosmos.constants import TestBehavior
 
+from receipts import raw_receipts
 
-@dag(dag_id="dbt_dynamic_dag_from_manifest",
-     schedule=stg_receipts,
-     doc_md="A DAG that runs all dbt models in the dbt project"
-     )
-def dbt_dag():
-    dbt_run_all = BashOperator(
-        task_id="dbt_run_all",
-        bash_command=(
-            f"dbt run "
-            f"--project-dir {PATH_TO_DBT_PROJECT} "
-            f"--profiles-dir {PATH_TO_DBT_PROJECT} "
-            f"--target prod"
-        )
-    )
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DBT_PROJECT_DIR = PROJECT_ROOT / "dbt" / "receipts_analytics"
+# dbt lives in the project virtualenv mounted at /opt/airflow/.venv
+DBT_EXECUTABLE = PROJECT_ROOT / ".venv" / "bin" / "dbt"
 
-    dbt_run_all
+profile_config = ProfileConfig(
+    profile_name="receipts_analytics",
+    target_name="prod",
+    profiles_yml_filepath=DBT_PROJECT_DIR / "profiles.yml",
+)
 
-    # with open(DBT_MANIFEST_PATH) as f:
-    #     manifest = json.load(f)
-    #
-    # dbt_tasks = {}
-    #
-    # # 2. Create a task for each dbt model
-    # for node_id, node_info in manifest["nodes"].items():
-    #     if node_info["resource_type"] == "model":
-    #         model_name = node_info["name"]
-    #
-    #         # Create a BashOperator to run the specific model
-    #         dbt_tasks[node_id] = BashOperator(
-    #             task_id=f"dbt_run_{model_name}",
-    #             bash_command=(
-    #                 f"dbt run --select {model_name} "
-    #                 f"--project-dir {PATH_TO_DBT_PROJECT} "
-    #                 f"--profiles-dir {PATH_TO_DBT_PROJECT} "
-    #                 "--no-write-json "
-    #                 "--target prod"
-    #             ),
-    #         )
-    #
-    # # 3. Set up dependencies between the tasks
-    # for node_id, node_info in manifest["nodes"].items():
-    #     if node_info["resource_type"] == "model":
-    #         # Get the upstream dependencies for the current model
-    #         upstream_nodes = node_info.get("depends_on", {}).get("nodes", [])
-    #
-    #         for upstream_node_id in upstream_nodes:
-    #             # Check if the upstream node is also a model in our tasks
-    #             if upstream_node_id in dbt_tasks:
-    #                 # Create the dependency link
-    #                 dbt_tasks[upstream_node_id] >> dbt_tasks[node_id]
+execution_config = ExecutionConfig(dbt_executable_path=str(DBT_EXECUTABLE))
 
+# Render one task per model, immediately followed by that model's tests, and
+# install dbt packages (dbt_utils) during rendering.
+render_config = RenderConfig(
+    test_behavior=TestBehavior.AFTER_EACH,
+    dbt_deps=True,
+)
 
-dbt_dag()
+default_args = {
+    "owner": "jack",
+    "retries": 2,
+    "retry_delay": timedelta(minutes=5),
+}
+
+dbt_receipts_analytics = DbtDag(
+    dag_id="dbt_receipts_analytics",
+    project_config=ProjectConfig(dbt_project_path=DBT_PROJECT_DIR),
+    profile_config=profile_config,
+    execution_config=execution_config,
+    render_config=render_config,
+    # Asset-scheduled: run after the raw_receipts ingestion asset is produced.
+    schedule=[raw_receipts],
+    default_args=default_args,
+    tags=["dbt", "receipts"],
+    doc_md=__doc__,
+)

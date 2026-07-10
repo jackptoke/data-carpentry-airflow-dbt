@@ -341,7 +341,9 @@ services:
     restart: always
     volumes:
       - ./dashboard:/opt/airflow/dashboard
-      - ./dbt/airbnb/receipts.duckdb:/opt/airflow/dbt/airbnb/receipts.duckdb
+      # Share the dbt project dir so the dashboard reads the live DuckDB the
+      # pipeline produces (read-only; the pipeline is the only writer).
+      - ./dbt/receipts_analytics:/opt/airflow/dbt/receipts_analytics:ro
     entrypoint:
       - streamlit
       - run

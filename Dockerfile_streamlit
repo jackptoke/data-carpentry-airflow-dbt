@@ -13,6 +13,8 @@ RUN pip install --upgrade pip
 
 COPY ./dashboard ./dashboard
 
-COPY ./dbt/airbnb/receipts.duckdb dbt/airbnb/receipts.duckdb
-
 RUN pip install -r dashboard/requirements.txt
+
+# The DuckDB database is NOT baked into the image. It is the pipeline's output
+# and is mounted at runtime (see the dc-streamlit volume in docker-compose.yaml),
+# so the dashboard always reflects the latest dbt build.
