@@ -2,6 +2,10 @@ streamlit==1.41.1
 duckdb==1.3.1
 plotly==5.24.1
 pandas==2.2.3
+# Pin numpy to the 1.x line. Left unpinned, the resolver pulls numpy 2.5.x, whose
+# ABI is incompatible with the duckdb 1.3.1 wheel and segfaults the app on startup
+# on Streamlit Community Cloud ("Error running app", Segmentation fault in logs).
+numpy==1.26.4
 # Used only for the standalone (e.g. Streamlit Community Cloud) first-run build
 # in streamlit_app.py: reconstruct the DuckDB warehouse from the committed JSON
 # via dbt, since there is no Airflow there. Unused in the Docker deployment.
