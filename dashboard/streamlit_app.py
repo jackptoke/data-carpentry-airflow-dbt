@@ -56,18 +56,20 @@ def _run(cmd: list[str], cwd: Path) -> None:
 
 @st.cache_resource(show_spinner="Building the analytics database (first run only)…")
 def _ensure_database() -> None:
-    """Reconstruct the DuckDB warehouse when it isn't already complete.
+    """Make sure a complete DuckDB warehouse is available before rendering.
 
-    In Docker the Airflow pipeline is the writer and sets ``DUCKDB_FILE`` on the
-    dashboard, so we never self-build there. Standalone (e.g. Streamlit Community
-    Cloud, where there is no Airflow), we rebuild from the committed raw JSON with
-    the same two steps Airflow orchestrates — land the receipts, then run the dbt
-    models. Cached so it happens once per container boot.
+    Resolution order:
+      * Docker sets ``DUCKDB_FILE`` — the Airflow pipeline is the writer there.
+      * A prebuilt ``receipts.duckdb`` is committed to the repo, so read-only
+        hosts like Streamlit Community Cloud (whose sandbox filesystem can't be
+        written) serve it directly with no build.
+      * Otherwise (local dev with the DB deleted) rebuild it from the committed
+        raw JSON with the same two steps Airflow orchestrates.
     """
     if os.getenv("DUCKDB_FILE"):
         return  # externally managed (Docker warehouse / Airflow)
     if _db_is_complete():
-        return  # already built (local dev, or a warm Cloud container)
+        return  # committed prebuilt DB (Cloud), or already built locally
 
     # Drop any partial DB left by an interrupted earlier attempt, then rebuild.
     Path(DUCKDB_FILE).unlink(missing_ok=True)

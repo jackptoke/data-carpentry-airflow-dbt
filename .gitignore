@@ -173,6 +173,10 @@ upgrade-test*
 # DuckDB is a build artifact produced by the pipeline, not source
 *.duckdb
 *.duckdb.wal
+# ...except this one prebuilt warehouse, committed so read-only hosts (Streamlit
+# Community Cloud) can serve the dashboard without a runtime build. Refresh it
+# with: python scripts/build_local_db.py && (cd dbt/receipts_analytics && dbt build --profiles-dir .)
+!dbt/receipts_analytics/receipts.duckdb
 
 # dbt build artifacts / local state
 dbt_packages/
