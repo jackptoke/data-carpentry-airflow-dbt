@@ -3,6 +3,22 @@ import streamlit as st
 
 from constants import BUSINESS_COLOURS, run_query
 
+_PREVIEW_ROWS = 200
+
+
+def preview_table(name: str, limit: int = _PREVIEW_ROWS) -> None:
+    """Show a capped sample of a table.
+
+    These panels illustrate the data model; loading whole tables (raw_receipts
+    alone is 13.5k nested rows) would serialise tens of MB to the browser and can
+    exhaust a small hosted container. A sample conveys the shape at a fraction of
+    the cost.
+    """
+    df = run_query(f"SELECT * FROM main.{name} LIMIT {limit}")
+    st.dataframe(df, use_container_width=True)
+    st.caption(f"Sample — first {len(df)} rows of `main.{name}`.")
+
+
 st.markdown("### Questions")
 st.markdown("1. Are there periods of the year where some businesses are more profitable?")
 st.markdown("2. Which customers were most loyal for each business?")
@@ -10,7 +26,7 @@ st.markdown("3. What is the employee turnover rate of each business?")
 
 st.markdown("### Raw Data")
 st.caption("`main.raw_receipts` — one row per receipt, loaded from JSON with nested structs/lists.")
-st.dataframe(run_query("SELECT * FROM main.raw_receipts"))
+preview_table("raw_receipts")
 
 st.markdown("#### Strategy")
 st.markdown(
@@ -22,7 +38,7 @@ st.markdown(
 
 st.markdown("#### Normalised (staging) tables")
 st.markdown("##### stg_receipts")
-st.dataframe(run_query("SELECT * FROM main.stg_receipts"))
+preview_table("stg_receipts")
 other_staging = [
     "stg_businesses",
     "stg_cashiers",
@@ -35,18 +51,18 @@ for left, right in zip(other_staging[0::2], other_staging[1::2]):
     col_l, col_r = st.columns(2)
     with col_l:
         st.markdown(f"##### {left}")
-        st.dataframe(run_query(f"SELECT * FROM main.{left}"))
+        preview_table(left)
     with col_r:
         st.markdown(f"##### {right}")
-        st.dataframe(run_query(f"SELECT * FROM main.{right}"))
+        preview_table(right)
 
 st.markdown("## Q1. Are there periods of the year where some businesses are more profitable?")
 st.markdown("### 1. Sales by business (`int_business_sales`)")
-st.dataframe(run_query("SELECT * FROM main.int_business_sales"))
+preview_table("int_business_sales")
 st.markdown("### 2. Profit per receipt (`int_receipt_profits`)")
-st.dataframe(run_query("SELECT * FROM main.int_receipt_profits"))
+preview_table("int_receipt_profits")
 st.markdown("### 3. Business sales and profits (`int_business_sales_profits`)")
-st.dataframe(run_query("SELECT * FROM main.int_business_sales_profits"))
+preview_table("int_business_sales_profits")
 
 st.markdown("### 4. Monthly profits per business (`fct_business_monthly_profits`)")
 monthly = run_query("SELECT * FROM main.fct_business_monthly_profits")
