@@ -27,3 +27,47 @@ models:
         description: Sum of receipt profit for the business in that month (AUD).
       - name: num_of_sales
         description: Number of receipts for the business in that month.
+
+  - name: fct_business_kpis
+    description: >
+      KPI (semantic) layer. Headline metrics per business per fiscal year
+      (July–June) with year-on-year deltas — the mart the executive dashboard
+      reads. Revenue and profit are net of promotions; margin and behaviour
+      ratios are derived once here so every consumer reports the same numbers.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [business_abn, fiscal_year]
+    columns:
+      - name: business_abn
+        description: Australian Business Number of the business.
+        data_tests: [not_null]
+      - name: business_name
+        description: Business name.
+        data_tests: [not_null]
+      - name: fiscal_year
+        description: Fiscal year starting in July (e.g. 2025 = Jul 2025–Jun 2026).
+        data_tests: [not_null]
+      - name: fiscal_year_label
+        description: Human-readable fiscal year span, e.g. "2025-2026".
+      - name: net_revenue
+        description: Sales after promotional discounts, summed over the year (AUD).
+        data_tests: [not_null]
+      - name: cogs
+        description: Cost of goods sold — total product cost (AUD).
+      - name: gross_profit
+        description: net_revenue minus cogs (AUD).
+      - name: gross_margin_pct
+        description: gross_profit as a percentage of net_revenue.
+      - name: num_transactions
+        description: Number of receipts issued in the fiscal year.
+        data_tests: [not_null]
+      - name: num_customers
+        description: Distinct named customers seen in the fiscal year.
+      - name: avg_order_value
+        description: net_revenue divided by num_transactions (AOV, AUD).
+      - name: purchases_per_customer
+        description: num_transactions divided by num_customers (repeat-purchase intensity).
+      - name: revenue_yoy_pct
+        description: Percentage change in net_revenue versus the prior fiscal year (null for the first year).
+      - name: profit_yoy_pct
+        description: Percentage change in gross_profit versus the prior fiscal year (null for the first year).
