@@ -1,0 +1,20 @@
+# Upload context for `railway up`. The dashboard image (dashboard/Dockerfile)
+# only needs dashboard/ and the prebuilt dbt/receipts_analytics/receipts.duckdb,
+# so exclude everything else — but NOT *.duckdb, so the baked warehouse uploads.
+.git
+.venv
+venv
+astro
+data
+logs
+plugins
+config
+dags
+scripts
+images
+**/__pycache__
+**/*.pyc
+dbt/receipts_analytics/dbt_packages
+dbt/receipts_analytics/target
+dbt/receipts_analytics/logs
+*.duckdb.wal
