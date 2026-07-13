@@ -16,3 +16,5 @@ models:
     description: Total spend and purchase count per business + customer.
   - name: int_business_employees
     description: Distinct (business, month, cashier) activity used for headcount and turnover.
+  - name: int_business_fiscal_sales
+    description: One row per receipt with fiscal year (July–June) and customer, carrying net revenue, COGS and gross profit for the KPI mart.

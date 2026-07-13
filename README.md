@@ -12,7 +12,10 @@ Docker with no external services required.
 
 ## The questions
 
-The pipeline answers three questions about four small businesses:
+On top of the raw receipts of four small businesses, the pipeline publishes a
+**KPI layer** — revenue, gross margin, transactions, AOV and year-on-year growth
+per business per fiscal year — surfaced through an executive-summary dashboard.
+It then drills into three analytical questions:
 
 1. Are there periods of the year where some businesses are more profitable?
 2. Which customers were most loyal to each business?
@@ -37,7 +40,8 @@ The pipeline answers three questions about four small businesses:
   renders the dbt project into a DAG with **one task per model plus its tests**.
   It is asset-scheduled, so it runs whenever `raw_receipts` is refreshed.
 - **Serving** ([dashboard/](./dashboard/)) — Streamlit reads the marts
-  read-only from the same DuckDB file.
+  read-only from the same DuckDB file. The landing page is an executive summary
+  over the KPI mart; deeper pages answer each analytical question.
 
 ## Data model (dbt)
 
@@ -47,10 +51,16 @@ the conventional **staging → intermediate → marts** layering:
 | Layer | Materialization | Models | Purpose |
 |---|---|---|---|
 | `staging/` | view | `stg_*` (7) | One thin, renamed, typed model per entity, unnested from the raw JSON. Date is parsed to `DATE` once here. |
-| `intermediate/` | view | `int_*` (6) | Reusable business logic (profit per receipt, customer spend, employee activity). Kept as views so they're inspectable. |
-| `marts/` | table | `fct_*` / `dim_*` (5) | The tables the dashboard queries: monthly profit, top customers, employee attendance and turnover. |
+| `intermediate/` | view | `int_*` (7) | Reusable business logic (profit per receipt, customer spend, employee activity, fiscal-year sales). Kept as views so they're inspectable. |
+| `marts/` | table | `fct_*` / `dim_*` (6) | The tables the dashboard queries: the KPI layer, monthly profit, top customers, employee attendance and turnover. |
 
-**18 models, 44 data tests** (`not_null`, `unique`, `relationships`,
+The KPI layer ([`fct_business_kpis`](./dbt/receipts_analytics/models/marts/finance/fct_business_kpis.sql))
+is the semantic layer the executive summary reads: revenue, gross margin,
+transactions, unique customers, AOV and purchases-per-customer per business per
+fiscal year, with year-on-year deltas computed once (via window `lag`) so every
+consumer reports the same numbers.
+
+**20 models, 50 data tests** (`not_null`, `unique`, `relationships`,
 `accepted_values`, and `dbt_utils.unique_combination_of_columns`). Every model
 and key column is documented in the `_*.yml` schema files, so `dbt docs generate`
 produces a full lineage graph.
@@ -76,9 +86,14 @@ echo "AIRFLOW_UID=$(id -u)" > .env
 docker compose up
 ```
 
-- Airflow UI: <http://localhost:8080> (login `airflow` / `airflow`). Trigger the
-  `raw_receipts` asset; the `dbt_receipts_analytics` DAG runs automatically after.
-- Streamlit dashboard: <http://localhost:8505>
+### Accessing the dashboards
+
+Once `docker compose up` is running, both UIs are served locally:
+
+| Service | URL | Notes |
+|---|---|---|
+| **Airflow** | <http://localhost:8080> | Login `airflow` / `airflow`. Trigger the `raw_receipts` asset; the `dbt_receipts_analytics` DAG runs automatically after. |
+| **Streamlit dashboard** | <http://localhost:8505> | Read-only view of the marts. Populates once the dbt DAG has run at least once. |
 
 ### dbt only (no Airflow)
 The whole transformation layer can be built and tested locally without Docker:
@@ -114,6 +129,21 @@ dbt build --target dev --profiles-dir .   # runs every model + data test
 - **Turnover is computed, not hand-counted** (see below).
 
 ## Results
+
+### Executive summary (KPI layer)
+
+The landing page reads `fct_business_kpis` and opens on the latest complete
+fiscal year, with portfolio totals and year-on-year movement up top.
+
+![Executive summary dashboard](./images/executive_summary.png)
+
+- **Pizza Pronto is the growth engine** — it compounds revenue every year and
+  overtook Penguin Swim School for the #2 spot on rising volume and margin.
+- **Margins are healthy and improving** — a ~50–53% blended gross margin,
+  trending up as the businesses mature.
+- **Volume up, value down in the latest year** — transactions hit a record while
+  revenue and average order value fell for three of the four businesses
+  (customers buying *more often but smaller*), the divergence worth watching next.
 
 ### Q1 — Seasonality of profit
 ![Question 1](./images/question1.jpg)
