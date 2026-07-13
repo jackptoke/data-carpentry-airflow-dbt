@@ -8,6 +8,9 @@ Docker with no external services required.
 > Originally built as a Data Carpentry assignment (IFQ718), now reworked into a
 > portfolio project demonstrating a production-shaped ELT pipeline.
 
+**▶ Live dashboard:** <https://data-carpentry-airflow-dbt-production.up.railway.app>
+— the Streamlit app deployed and running, no setup required.
+
 ![Tech stack](./images/tools_banner.png)
 
 ## The questions
@@ -87,6 +90,10 @@ docker compose up
 ```
 
 ### Accessing the dashboards
+
+> **No setup?** The Streamlit dashboard is deployed live at
+> <https://data-carpentry-airflow-dbt-production.up.railway.app> — a read-only
+> snapshot of the marts, no install required.
 
 Once `docker compose up` is running, both UIs are served locally:
 
