@@ -23,9 +23,40 @@ ROOT = Path(__file__).resolve().parent.parent
 DBT_PROJECT = ROOT / "dbt" / "receipts_analytics"
 
 
+def _db_is_complete() -> bool:
+    """True only if the warehouse exists *and* the final mart is present.
+
+    Checking the final table (not just the file) matters: an interrupted build
+    leaves a partial ``receipts.duckdb`` with only ``raw_receipts``, and treating
+    that as "done" would serve an empty dashboard.
+    """
+    db = Path(DUCKDB_FILE)
+    if not db.exists():
+        return False
+    try:
+        import duckdb
+
+        with duckdb.connect(str(db), read_only=True) as con:
+            (n,) = con.execute(
+                "select count(*) from information_schema.tables "
+                "where table_name = 'fct_business_kpis'"
+            ).fetchone()
+        return bool(n)
+    except Exception:
+        return False
+
+
+def _run(cmd: list[str], cwd: Path) -> None:
+    """Run a build step, surfacing its output in the exception on failure."""
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    if result.returncode != 0:
+        tail = (result.stdout or "")[-3000:] + "\n" + (result.stderr or "")[-2000:]
+        raise RuntimeError(f"`{' '.join(cmd[-2:])}` failed (exit {result.returncode}):\n{tail}")
+
+
 @st.cache_resource(show_spinner="Building the analytics database (first run only)…")
 def _ensure_database() -> None:
-    """Reconstruct the DuckDB warehouse when it isn't already present.
+    """Reconstruct the DuckDB warehouse when it isn't already complete.
 
     In Docker the Airflow pipeline is the writer and sets ``DUCKDB_FILE`` on the
     dashboard, so we never self-build there. Standalone (e.g. Streamlit Community
@@ -35,23 +66,24 @@ def _ensure_database() -> None:
     """
     if os.getenv("DUCKDB_FILE"):
         return  # externally managed (Docker warehouse / Airflow)
-    if Path(DUCKDB_FILE).exists():
+    if _db_is_complete():
         return  # already built (local dev, or a warm Cloud container)
 
+    # Drop any partial DB left by an interrupted earlier attempt, then rebuild.
+    Path(DUCKDB_FILE).unlink(missing_ok=True)
     # 1. Land the raw JSON into main.raw_receipts (absolute output path).
-    subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "build_local_db.py")],
-        check=True,
-        cwd=ROOT,
-    )
+    _run([sys.executable, str(ROOT / "scripts" / "build_local_db.py")], cwd=ROOT)
     # 2. Build the dbt models. The dev profile's output path is relative
     #    (`receipts.duckdb`), so dbt must run from the project dir — exactly as
     #    the documented `cd dbt/receipts_analytics && dbt ...` workflow — or it
     #    would open a different, empty database.
     dbt_exe = Path(sys.executable).parent / "dbt"
     dbt = str(dbt_exe) if dbt_exe.exists() else "dbt"
-    for args in (["deps"], ["run", "--target", "dev", "--profiles-dir", "."]):
-        subprocess.run([dbt, *args], check=True, cwd=DBT_PROJECT)
+    _run([dbt, "deps"], cwd=DBT_PROJECT)
+    _run([dbt, "run", "--target", "dev", "--profiles-dir", "."], cwd=DBT_PROJECT)
+
+    if not _db_is_complete():
+        raise RuntimeError("Build finished but fct_business_kpis is still missing.")
 
 
 _ensure_database()
