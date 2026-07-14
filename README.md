@@ -21,6 +21,9 @@ From the KPI layer built over ~13,500 receipts across seven fiscal years:
 - **Volume up, value down in the latest year** — transactions hit a record while
   revenue and average order value *fell* for three of the four businesses
   (customers buying more often but smaller) — the divergence to watch next.
+- **Value concentrates in a few customers** — RFM segmentation flags a small
+  *Champions* group driving an outsized share of revenue, plus an *At Risk /
+  Cannot Lose Them* cohort worth a targeted win-back.
 
 ## What it answers
 
@@ -31,6 +34,9 @@ questions:
 1. Are there periods of the year where some businesses are more profitable?
 2. Which customers were most loyal to each business?
 3. What is the employee turnover rate of each business?
+
+…and extends the customer view with **RFM segmentation** (below), which turns raw
+receipts into named, action-oriented customer groups.
 
 ## Architecture
 
@@ -64,8 +70,8 @@ the conventional **staging → intermediate → marts** layering:
 | Layer | Materialization | Models | Purpose |
 |---|---|---|---|
 | `staging/` | view | `stg_*` (7) | One thin, renamed, typed model per entity, unnested from the raw JSON. Date is parsed to `DATE` once here. |
-| `intermediate/` | view | `int_*` (7) | Reusable business logic (profit per receipt, customer spend, employee activity, fiscal-year sales). Kept as views so they're inspectable. |
-| `marts/` | table | `fct_*` / `dim_*` (6) | The tables the dashboard queries: the KPI layer, monthly profit, top customers, employee attendance and turnover. |
+| `intermediate/` | view | `int_*` (8) | Reusable business logic (profit per receipt, customer spend, employee activity, fiscal-year sales, customer RFM inputs). Kept as views so they're inspectable. |
+| `marts/` | table | `fct_*` / `dim_*` (7) | The tables the dashboard queries: the KPI layer, monthly profit, top customers, RFM segments, employee attendance and turnover. |
 
 The KPI layer ([`fct_business_kpis`](./dbt/receipts_analytics/models/marts/finance/fct_business_kpis.sql))
 is the semantic layer the executive summary reads: revenue, gross margin,
@@ -73,7 +79,7 @@ transactions, unique customers, AOV and purchases-per-customer per business per
 fiscal year, with year-on-year deltas computed once (via window `lag`) so every
 consumer reports the same numbers.
 
-**20 models, 50 data tests** (`not_null`, `unique`, `relationships`,
+**22 models, 58 data tests** (`not_null`, `unique`, `relationships`,
 `accepted_values`, and `dbt_utils.unique_combination_of_columns`). Every model
 and key column is documented in the `_*.yml` schema files, so `dbt docs generate`
 produces a full lineage graph.
@@ -174,6 +180,44 @@ Loyalty is measured two ways — total spend and number of purchases — as
 `fct_top_customers_by_spend` and `fct_top_customers_by_purchases`.
 
 ![Top 10 customers by amount spent](./images/q2_top_customers_lollipop.png)
+
+### Customer segments (RFM)
+
+Ranking the top customers answers *who* is valuable; **RFM segmentation** answers
+*what to do about it*. It's a canonical customer-analytics technique that scores
+every customer on three behaviours and buckets them into named, action-oriented
+groups.
+
+**How it's built** ([`int_customer_rfm`](./dbt/receipts_analytics/models/intermediate/int_customer_rfm.sql)
+→ [`fct_customer_rfm`](./dbt/receipts_analytics/models/marts/customers/fct_customer_rfm.sql)):
+
+- **Recency** — days from a customer's last receipt to the latest receipt in the
+  dataset (lower = more recently active).
+- **Frequency** — number of receipts.
+- **Monetary** — total net-of-discount revenue.
+
+Each is ranked into **1–5 quintiles with `NTILE(5)` partitioned by business**
+(recency reversed so recent = 5). The **Recency×Frequency grid** then maps to a
+segment via a `CASE` matrix — *Champions*, *Loyal*, *Potential Loyalist*, *New
+Customer*, *Needs Attention*, *At Risk*, *Cannot Lose Them*, *Hibernating*.
+Monetary is scored but kept off the segment axes and shown as the value (bubble
+size) dimension.
+
+![RFM customer segments](./images/rfm_segments.png)
+
+Reading the grid: **Champions** (recent + frequent) sit top-left; **Cannot Lose
+Them** are high-frequency past spenders drifting right as they go quiet;
+**Hibernating** trail off to the right (long inactive). Each segment carries a
+recommended action in the dashboard (reward Champions, run a win-back for At
+Risk, etc.), turning receipts into *who to act on and how*.
+
+> **Why `NTILE` and why the caveat matters.** Each business has only ~12–29 named
+> customers, so quintiles are coarse (2–6 customers per bucket) and `NTILE`
+> breaks ties by row order rather than value. The segmentation demonstrates the
+> *method*; on a dataset this small the segments are illustrative rather than a
+> statistically fine-grained split. Calling that out is deliberate — with a
+> larger customer base the same models produce production-grade segments, and the
+> natural next steps are cohort-retention curves and customer lifetime value.
 
 ### Q3 — Employee turnover
 Turnover is computed entirely in dbt (`fct_employee_turnover`), replacing an
