@@ -101,6 +101,10 @@ docker compose up
 
 ### Accessing the dashboards
 
+> **No setup?** The Streamlit dashboard is deployed live at
+> <https://data-carpentry-airflow-dbt-production.up.railway.app> — a read-only
+> snapshot of the marts, no install required.
+
 Once `docker compose up` is running, both UIs are served locally:
 
 | Service | URL | Notes |
