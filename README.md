@@ -129,9 +129,9 @@ The public dashboard runs as a self-contained container
 ([dashboard/Dockerfile](./dashboard/Dockerfile)): the image bakes in a prebuilt,
 read-only DuckDB, so there is **no Airflow and no runtime build** in production —
 it just serves the marts. [railway.json](./railway.json) points Railway at that
-Dockerfile; `railway up` (or a GitHub connection) ships it. The dashboard's
-dependencies are pinned to an ABI-coherent native stack (numpy 2.x / pyarrow /
-duckdb) so the image is reproducible across rebuilds.
+Dockerfile, and the service is connected to this repo so **every push to `main`
+auto-deploys**. The dashboard's dependencies are pinned to an ABI-coherent native
+stack (numpy 2.x / pyarrow / duckdb) so the image is reproducible across rebuilds.
 
 ## Testing & CI
 
