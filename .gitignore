@@ -1,3 +1,6 @@
+# Local Claude Code config (not part of the project)
+.claude/
+
 # dbt-specific
 dbt/airbnb/logs/*
 

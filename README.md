@@ -5,6 +5,8 @@ transforms it with a layered dbt project orchestrated by Apache Airflow, and
 serves the results through a Streamlit dashboard — all on DuckDB, running under
 Docker with no external services required.
 
+**🔗 Live dashboard:** <https://data-carpentry-airflow-dbt-production.up.railway.app> (deployed on Railway)
+
 > Originally built as a Data Carpentry assignment (IFQ718), now reworked into a
 > portfolio project demonstrating a production-shaped ELT pipeline.
 
