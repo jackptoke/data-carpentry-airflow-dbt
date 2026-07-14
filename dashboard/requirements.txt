@@ -8,7 +8,3 @@ pandas==2.2.3
 # Streamlit Community Cloud ("Error running app" / "Segmentation fault" in logs).
 # 2.0–2.4 is the compatible window.
 numpy>=2.0,<2.5
-# Used only for the standalone (e.g. Streamlit Community Cloud) first-run build
-# in streamlit_app.py: reconstruct the DuckDB warehouse from the committed JSON
-# via dbt, since there is no Airflow there. Unused in the Docker deployment.
-dbt-duckdb==1.9.4
