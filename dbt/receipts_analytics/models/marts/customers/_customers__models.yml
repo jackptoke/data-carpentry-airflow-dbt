@@ -26,6 +26,56 @@ models:
           - accepted_values:
               values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
+  - name: fct_customer_rfm
+    description: >
+      RFM segmentation. One row per (business, customer) with Recency /
+      Frequency / Monetary values, their 1–5 quintile scores within the
+      business, and a named action segment derived from the R×F grid. See the
+      model header for the small-sample caveat.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [business_name, customer_name]
+    columns:
+      - name: business_name
+        description: Business the customer belongs to.
+        data_tests: [not_null]
+      - name: customer_name
+        description: Customer name.
+        data_tests: [not_null]
+      - name: recency_days
+        description: Days from the customer's last receipt to the latest receipt in the dataset.
+      - name: frequency
+        description: Number of receipts for the customer at the business.
+      - name: monetary
+        description: Total net-of-discount revenue from the customer (AUD).
+      - name: r_score
+        description: Recency quintile within the business (5 = most recent).
+        data_tests:
+          - accepted_values: {values: [1, 2, 3, 4, 5]}
+      - name: f_score
+        description: Frequency quintile within the business (5 = most frequent).
+        data_tests:
+          - accepted_values: {values: [1, 2, 3, 4, 5]}
+      - name: m_score
+        description: Monetary quintile within the business (5 = highest spend).
+        data_tests:
+          - accepted_values: {values: [1, 2, 3, 4, 5]}
+      - name: segment
+        description: Named RFM segment from the Recency×Frequency grid.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values:
+                - Champions
+                - Cannot Lose Them
+                - Loyal
+                - At Risk
+                - Potential Loyalist
+                - New Customer
+                - Needs Attention
+                - Hibernating
+                - Others
+
   - name: fct_top_customers_by_purchases
     description: >
       Q2 mart. Top 10 customers per business ranked by number of purchases

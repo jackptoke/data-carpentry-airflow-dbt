@@ -68,6 +68,7 @@ PAGES = [
     ("Overview", "Executive Summary", "executive_summary.py"),
     ("Analysis", "Seasonality of profit", "question1.py"),
     ("Analysis", "Customer loyalty", "question2.py"),
+    ("Analysis", "Customer segments (RFM)", "customer_segments.py"),
     ("Analysis", "Employee turnover", "question3.py"),
 ]
 

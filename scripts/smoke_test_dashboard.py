@@ -14,7 +14,13 @@ import sys
 from pathlib import Path
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
-PAGES = ["executive_summary.py", "question1.py", "question2.py", "question3.py"]
+PAGES = [
+    "executive_summary.py",
+    "question1.py",
+    "question2.py",
+    "customer_segments.py",
+    "question3.py",
+]
 
 # Runs a single page in a fresh interpreter; exits non-zero on any exception.
 _RUNNER = """
