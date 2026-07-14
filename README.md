@@ -1,30 +1,40 @@
 # Receipts Analytics — Airflow + dbt + DuckDB + Streamlit
 
-A self-contained analytics engineering project that ingests raw receipt data,
-transforms it with a layered dbt project orchestrated by Apache Airflow, and
-serves the results through a Streamlit dashboard — all on DuckDB, running under
-Docker with no external services required.
+An end-to-end **analytics engineering** project: it ingests raw JSON receipts for
+four small businesses, transforms them through a layered, fully-tested dbt project
+orchestrated by Apache Airflow, publishes a **KPI semantic layer**, and serves an
+executive Streamlit dashboard — all on DuckDB, containerised, and deployed live.
 
-> Originally built as a Data Carpentry assignment (IFQ718), now reworked into a
-> portfolio project demonstrating a production-shaped ELT pipeline.
+**🔗 Live dashboard:** <https://data-carpentry-airflow-dbt-production.up.railway.app>
+&nbsp;·&nbsp; **Stack:** Airflow · dbt (Cosmos) · DuckDB · Streamlit · Docker · Railway
 
-**▶ Live dashboard:** <https://data-carpentry-airflow-dbt-production.up.railway.app>
-— the Streamlit app deployed and running, no setup required.
+![Executive summary dashboard](./images/executive_summary.png)
 
-![Tech stack](./images/tools_banner.png)
+## Key findings
 
-## The questions
+From the KPI layer built over ~13,500 receipts across seven fiscal years:
 
-On top of the raw receipts of four small businesses, the pipeline publishes a
-**KPI layer** — revenue, gross margin, transactions, AOV and year-on-year growth
-per business per fiscal year — surfaced through an executive-summary dashboard.
-It then drills into three analytical questions:
+- **Pizza Pronto is the growth engine** — it compounds revenue every year and
+  overtook Penguin Swim School for the #2 spot on rising volume and margin.
+- **Margins are healthy and improving** — a ~50–53% blended gross margin, trending
+  up as the businesses mature.
+- **Volume up, value down in the latest year** — transactions hit a record while
+  revenue and average order value *fell* for three of the four businesses
+  (customers buying more often but smaller) — the divergence to watch next.
+
+## What it answers
+
+Beyond the headline KPIs — revenue, gross margin, transactions, AOV and
+year-on-year growth per business per fiscal year — the dashboard drills into three
+questions:
 
 1. Are there periods of the year where some businesses are more profitable?
 2. Which customers were most loyal to each business?
 3. What is the employee turnover rate of each business?
 
 ## Architecture
+
+![Tech stack](./images/tools_banner.png)
 
 ```text
  JSON receipts                Airflow (asset-scheduled)                 Streamlit
@@ -113,9 +123,19 @@ dbt deps
 dbt build --target dev --profiles-dir .   # runs every model + data test
 ```
 
+### Live deployment (Railway)
+
+The public dashboard runs as a self-contained container
+([dashboard/Dockerfile](./dashboard/Dockerfile)): the image bakes in a prebuilt,
+read-only DuckDB, so there is **no Airflow and no runtime build** in production —
+it just serves the marts. [railway.json](./railway.json) points Railway at that
+Dockerfile; `railway up` (or a GitHub connection) ships it. The dashboard's
+dependencies are pinned to an ABI-coherent native stack (numpy 2.x / pyarrow /
+duckdb) so the image is reproducible across rebuilds.
+
 ## Testing & CI
 
-- `dbt build` runs all 44 data tests alongside the models.
+- `dbt build` runs all 50 data tests alongside the models.
 - [scripts/smoke_test_dashboard.py](./scripts/smoke_test_dashboard.py) executes
   every Streamlit page headlessly (via `AppTest`) and fails on any exception.
 - [.github/workflows/ci.yml](./.github/workflows/ci.yml) runs both on every push
@@ -135,22 +155,11 @@ dbt build --target dev --profiles-dir .   # runs every model + data test
   one opaque BashOperator.
 - **Turnover is computed, not hand-counted** (see below).
 
-## Results
+## The analysis in detail
 
-### Executive summary (KPI layer)
-
-The landing page reads `fct_business_kpis` and opens on the latest complete
-fiscal year, with portfolio totals and year-on-year movement up top.
-
-![Executive summary dashboard](./images/executive_summary.png)
-
-- **Pizza Pronto is the growth engine** — it compounds revenue every year and
-  overtook Penguin Swim School for the #2 spot on rising volume and margin.
-- **Margins are healthy and improving** — a ~50–53% blended gross margin,
-  trending up as the businesses mature.
-- **Volume up, value down in the latest year** — transactions hit a record while
-  revenue and average order value fell for three of the four businesses
-  (customers buying *more often but smaller*), the divergence worth watching next.
+The executive summary (the hero above) reads `fct_business_kpis` and opens on the
+latest complete fiscal year with portfolio totals and year-on-year movement. The
+three analytical pages drill deeper:
 
 ### Q1 — Seasonality of profit
 ![Question 1](./images/question1.jpg)
@@ -164,7 +173,7 @@ fiscal year, with portfolio totals and year-on-year movement up top.
 Loyalty is measured two ways — total spend and number of purchases — as
 `fct_top_customers_by_spend` and `fct_top_customers_by_purchases`.
 
-![Top 10 customers by amount spent](./images/q2_top_10_customers_by_amount_spent.jpg)
+![Top 10 customers by amount spent](./images/q2_top_customers_lollipop.png)
 
 ### Q3 — Employee turnover
 Turnover is computed entirely in dbt (`fct_employee_turnover`), replacing an
