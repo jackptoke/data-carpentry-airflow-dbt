@@ -24,6 +24,9 @@ From the KPI layer built over ~13,500 receipts across seven fiscal years:
 - **Value concentrates in a few customers** — RFM segmentation flags a small
   *Champions* group driving an outsized share of revenue, plus an *At Risk /
   Cannot Lose Them* cohort worth a targeted win-back.
+- **Selling ≠ earning** — product margins spread ~34–69%, so a business's top
+  sellers by revenue are *not* its top earners; the margin map separates the
+  "stars" from the high-volume, thin-margin "volume traps".
 
 ## What it answers
 
@@ -35,8 +38,9 @@ questions:
 2. Which customers were most loyal to each business?
 3. What is the employee turnover rate of each business?
 
-…and extends the customer view with **RFM segmentation** (below), which turns raw
-receipts into named, action-oriented customer groups.
+…and extends the analysis with **RFM customer segmentation** and **product
+margin & performance** (below) — turning raw receipts into named customer groups
+and separating the products that sell from the products that *earn*.
 
 ## Architecture
 
@@ -70,8 +74,8 @@ the conventional **staging → intermediate → marts** layering:
 | Layer | Materialization | Models | Purpose |
 |---|---|---|---|
 | `staging/` | view | `stg_*` (7) | One thin, renamed, typed model per entity, unnested from the raw JSON. Date is parsed to `DATE` once here. |
-| `intermediate/` | view | `int_*` (8) | Reusable business logic (profit per receipt, customer spend, employee activity, fiscal-year sales, customer RFM inputs). Kept as views so they're inspectable. |
-| `marts/` | table | `fct_*` / `dim_*` (7) | The tables the dashboard queries: the KPI layer, monthly profit, top customers, RFM segments, employee attendance and turnover. |
+| `intermediate/` | view | `int_*` (9) | Reusable business logic (profit per receipt, customer spend, employee activity, fiscal-year sales, customer RFM inputs, product sales). Kept as views so they're inspectable. |
+| `marts/` | table | `fct_*` / `dim_*` (8) | The tables the dashboard queries: the KPI layer, monthly profit, top customers, RFM segments, product performance, employee attendance and turnover. |
 
 The KPI layer ([`fct_business_kpis`](./dbt/receipts_analytics/models/marts/finance/fct_business_kpis.sql))
 is the semantic layer the executive summary reads: revenue, gross margin,
@@ -79,7 +83,7 @@ transactions, unique customers, AOV and purchases-per-customer per business per
 fiscal year, with year-on-year deltas computed once (via window `lag`) so every
 consumer reports the same numbers.
 
-**22 models, 58 data tests** (`not_null`, `unique`, `relationships`,
+**24 models, 63 data tests** (`not_null`, `unique`, `relationships`,
 `accepted_values`, and `dbt_utils.unique_combination_of_columns`). Every model
 and key column is documented in the `_*.yml` schema files, so `dbt docs generate`
 produces a full lineage graph.
@@ -218,6 +222,31 @@ Risk, etc.), turning receipts into *who to act on and how*.
 > statistically fine-grained split. Calling that out is deliberate — with a
 > larger customer base the same models produce production-grade segments, and the
 > natural next steps are cohort-retention curves and customer lifetime value.
+
+### Product performance & margin
+
+The KPIs and loyalty views look at *businesses* and *customers*; this view looks
+at the **products** — where the real cost/price variation lives — to separate the
+items that *sell* from the items that *earn*.
+
+**How it's built** ([`int_product_sales`](./dbt/receipts_analytics/models/intermediate/int_product_sales.sql)
+→ [`fct_product_performance`](./dbt/receipts_analytics/models/marts/products/fct_product_performance.sql)):
+per (business, product) it rolls up units, gross vs **net revenue** (discounts
+applied with the same qualifying-quantity logic as the profit models), cost and
+gross profit, then computes **gross margin %** and ranks each product within its
+business by **both revenue and profit**. The gap between those two ranks is the
+whole point.
+
+![Product margin map](./images/product_margin_map.png)
+
+Reading the map — revenue (x) against gross margin (y), bubble size = gross
+profit: **top-right products are stars** (high revenue *and* rich margin, e.g.
+Ed's *Cape white* at ~$74k / 65%), while **bottom-right products are volume
+traps** (big sellers on thin margins). Margins genuinely spread **~34%–69%**
+across products, so ranking by revenue and ranking by profit disagree — several
+products (e.g. Penguin's *Waterpolo*, Pizza Pronto's *Three meat*) sit a few
+places *lower* on profit than on revenue. The page also surfaces the **discount
+given up** per product, a bridge toward promotion-effectiveness analysis.
 
 ### Q3 — Employee turnover
 Turnover is computed entirely in dbt (`fct_employee_turnover`), replacing an
