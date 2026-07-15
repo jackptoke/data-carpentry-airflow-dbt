@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: fct_product_performance
+    description: >
+      Product-performance mart. One row per (business, product) with units,
+      gross/net revenue, cost, gross profit, gross margin %, the discount given
+      up, and the product's rank within its business by revenue and by profit.
+      The revenue-rank vs profit-rank gap surfaces high-revenue / low-margin
+      products.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [business_name, product_name]
+    columns:
+      - name: business_name
+        description: Business the product belongs to.
+        data_tests: [not_null]
+      - name: product_name
+        description: Product name (scoped to the business).
+        data_tests: [not_null]
+      - name: units_sold
+        description: Total quantity sold.
+      - name: gross_revenue
+        description: Revenue at list price, before discounts (AUD).
+      - name: net_revenue
+        description: Revenue after promotional discounts (AUD).
+      - name: cost
+        description: Cost of goods sold (AUD).
+      - name: gross_profit
+        description: net_revenue minus cost (AUD).
+      - name: gross_margin_pct
+        description: gross_profit as a percentage of net_revenue.
+      - name: discount_given
+        description: gross_revenue minus net_revenue — value conceded to promotions (AUD).
+      - name: revenue_rank
+        description: Rank within the business by net revenue (1 = highest).
+        data_tests: [not_null]
+      - name: profit_rank
+        description: Rank within the business by gross profit (1 = highest).
+        data_tests: [not_null]

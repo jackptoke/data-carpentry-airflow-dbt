@@ -19,6 +19,7 @@ PAGES = [
     "question1.py",
     "question2.py",
     "customer_segments.py",
+    "product_performance.py",
     "question3.py",
 ]
 

@@ -69,6 +69,7 @@ PAGES = [
     ("Analysis", "Seasonality of profit", "question1.py"),
     ("Analysis", "Customer loyalty", "question2.py"),
     ("Analysis", "Customer segments (RFM)", "customer_segments.py"),
+    ("Analysis", "Product performance", "product_performance.py"),
     ("Analysis", "Employee turnover", "question3.py"),
 ]
 

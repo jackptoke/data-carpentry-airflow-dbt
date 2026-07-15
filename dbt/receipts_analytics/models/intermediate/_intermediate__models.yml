@@ -20,3 +20,5 @@ models:
     description: One row per receipt with fiscal year (July–June) and customer, carrying net revenue, COGS and gross profit for the KPI mart.
   - name: int_customer_rfm
     description: Per business + customer, the raw Recency (days since last purchase), Frequency (receipt count) and Monetary (total net revenue) inputs for RFM scoring. Anonymous receipts excluded.
+  - name: int_product_sales
+    description: Per business + product, units sold with gross/net revenue, cost and profit (discounts applied with the same qualifying-quantity logic as int_receipt_profits).
